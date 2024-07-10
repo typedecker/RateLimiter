@@ -22,8 +22,13 @@ class RateLimiter() :
             
             self.requests[func_name]['requests'] = 0
             
-            pending_requests = copy.deepcopy(self.requests[func_name]['pending_requests'])
+            try :
+                pending_requests = copy.deepcopy(self.requests[func_name]['pending_requests'])
+            except TypeError :
+                # When the function/method cannot be pickled.
+                pending_requests = self.requests[func_name]['pending_requests'].copy()
             self.requests[func_name]['pending_requests'].clear()
+            
             for req in pending_requests :
                 if req['type'] == 'func_call' :
                     await self.handle(func)(*req['args'], **req['kwargs'])
@@ -38,6 +43,7 @@ class RateLimiter() :
                             await self.requests[func_name]['reset_request_task']
                         except asyncio.CancelledError :
                             pass
+                        
                         del self.requests[func_name]
                         self.requests[func_name]['freed?'] = True
                     break
@@ -68,11 +74,11 @@ class RateLimiter() :
     def ratelimit(self, rl = 10) :
         def decorator(func) :
             func_name = func.__name__
-            self.requests[func_name] = {'ratelimit': self.default_rl, 'requests': 0, 'pending_requests': [], 'reset_request_task': None, 'func': func, 'func_name': func_name, 'freed?': False}
+            self.requests[func_name] = {'ratelimit': rl, 'requests': 0, 'pending_requests': [], 'reset_request_task': None, 'func': func, 'func_name': func_name, 'freed?': False}
             self.requests[func_name]['reset_request_task'] = asyncio.create_task(self.reset_requests(func))
             async def ratelimited_func(*args, **kwargs) :
-                self.requests[func_name]['requests'] += 1
-                return (await self.handle(func)(*args, **kwargs))
+                handled_func = self.handle(func)
+                return (await handled_func(*args, **kwargs))
             return ratelimited_func 
         return decorator
     
