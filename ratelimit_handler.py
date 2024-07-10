@@ -1,10 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Mon Jul  8 03:10:27 2024
-
-@author: ketch
-"""
-
 import asyncio, copy
 
 class RateLimiter() :
